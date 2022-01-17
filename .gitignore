@@ -1,0 +1,8 @@
+/leveldb.build.sh
+/leveldb.import.scm
+/leveldb.import.so
+/leveldb.install.sh
+/leveldb.link
+/leveldb.so
+/leveldb.static.o
+/tests/test.ldb/

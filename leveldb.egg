@@ -1,0 +1,14 @@
+;; -*- scheme -*-
+((author "Kristian Lein-Mathisen")
+ (synopsis "Bindings to Google's LevelDB Key-Value Store")
+ (version "1.0")
+ (license "BSD")
+ (category db)
+ (dependencies)
+ (foreign-dependencies leveldb)
+ (test-dependencies test)
+ (components (extension leveldb
+                        (source "leveldb-module.scm")
+                        (source-dependencies "leveldb.scm")
+                        (csc-options "-d3" "-O0")
+                        (link-options "-L" "-lleveldb"))))
