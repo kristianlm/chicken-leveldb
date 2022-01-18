@@ -10,5 +10,4 @@
  (components (extension leveldb
                         (source "leveldb-module.scm")
                         (source-dependencies "leveldb.scm")
-                        (csc-options "-d3" "-O0")
                         (link-options "-L" "-lleveldb"))))
