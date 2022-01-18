@@ -80,7 +80,7 @@
     (cond ((eq? compression      #f) (foreign-value "leveldb_no_compression" int))
           ((eq? compression 'snappy) (foreign-value "leveldb_snappy_compression" int))
           (else (error "compression must be either 'snappy or #f" compression))))
-  
+
   (let* ((open* (foreign-lambda* leveldb ((c-string name)
                                           (bool create_if_missing)
                                           (bool error_if_exists)
@@ -227,7 +227,7 @@ leveldb_writeoptions_destroy(o);
                                              (bool fill_cache)
                                              ;;(leveldb_snapshot_t* snapshot())
                                              ((c-pointer c-string) errptr))
-                           "  
+                           "
 leveldb_readoptions_t *o = leveldb_readoptions_create();
 leveldb_readoptions_set_verify_checksums(o, verify_checksums);
 leveldb_readoptions_set_fill_cache(o, fill_cache);
@@ -302,7 +302,6 @@ return(it);
        (leveldb-iter-value* it)))
 
 ;; TODO  leveldb_iter_get_error (const leveldb_iterator_t*,char** errptr)                   ;
-
 
 ;; TODO LEVELDB_EXPORT int leveldb_major_version(void);
 ;; TODO LEVELDB_EXPORT int leveldb_minor_version(void)

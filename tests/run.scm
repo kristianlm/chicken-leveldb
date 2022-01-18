@@ -41,7 +41,7 @@
 
   (leveldb-iter-seek it 'first)
   (test "a" (leveldb-iter-key it)) (test "1" (leveldb-iter-value it))
-  
+
   (leveldb-iter-next it)       (test "next" "b" (leveldb-iter-key it))
   (leveldb-iter-seek it "c")   (test "seek" "c" (leveldb-iter-key it))
   (leveldb-iter-prev it)       (test "prev" "b" (leveldb-iter-key it))
