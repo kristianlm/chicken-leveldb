@@ -2,7 +2,7 @@
 
                               leveldb-t           leveldb-t?
 
-                              leveldb-put
+                              leveldb-get leveldb-put leveldb-delete
 
                               leveldb-iterator-t  leveldb-iterator-t?
                               leveldb-iterator
@@ -15,6 +15,7 @@
                               leveldb-writebatch-t?
                               leveldb-writebatch
                               leveldb-writebatch-put
+                              leveldb-writebatch-delete
                               leveldb-writebatch-clear
                               leveldb-writebatch-destroy
                               leveldb-write

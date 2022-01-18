@@ -129,6 +129,42 @@ return(db);
     (finalizer db)
     db))
 
+(define (leveldb-get db key #!key
+                     (verify-checksums #f)
+                     (fill-cache #t))
+  (let-location ((vallen size_t))
+    (let* ((get (foreign-lambda* (c-pointer char)
+                                 ((leveldb db)
+                                  (scheme-pointer key)
+                                  (size_t keylen)
+                                  ((c-pointer size_t) vallen)
+                                  (bool verify_checksums)
+                                  (bool fill_cache)
+                                  ((c-pointer c-string) errptr)) "
+leveldb_readoptions_t *o = leveldb_readoptions_create();
+leveldb_readoptions_set_verify_checksums(o, verify_checksums);
+leveldb_readoptions_set_fill_cache(o, fill_cache);
+// leveldb_readoptions_set_snapshot(o, snapshot);
+
+char *val = leveldb_get(db, o, key, keylen, vallen, errptr);
+
+leveldb_readoptions_destroy(o);
+return(val);
+"))
+           (str* (call-with-errptr
+                  (cut get
+                       db key (number-of-bytes key)
+                       (location vallen)
+                       verify-checksums
+                       fill-cache <>)))
+           (str (and str* (make-string vallen))))
+      (if str*
+          (begin
+            (move-memory! str* str vallen)
+            (free str*)
+            str)
+          #f))))
+
 (define (leveldb-put db key value #!key
                      (sync #f))
   (let* ((put* (foreign-lambda* void ((leveldb db)
@@ -150,6 +186,22 @@ leveldb_writeoptions_destroy(o);
           value (number-of-bytes value)
           sync
           <>))))
+
+(define (leveldb-delete db key #!key (sync #f))
+  (let ((delete (foreign-lambda* void ((leveldb db)
+                                       (scheme-pointer key)
+                                       (size_t keylen)
+                                       (bool sync)
+                                       ((c-pointer c-string) errptr))
+                                 "
+leveldb_writeoptions_t *o = leveldb_writeoptions_create();
+leveldb_writeoptions_set_sync(o, sync);
+leveldb_delete(db, o, key, keylen, errptr);
+leveldb_writeoptions_destroy(o);
+")))
+    (call-with-errptr (cut delete
+                           db key (number-of-bytes key)
+                           sync <>))))
 
 (define (leveldb-iter-destroy it)
   (when (leveldb-iterator-t-pointer it)
@@ -255,13 +307,6 @@ return(it);
 ;; TODO LEVELDB_EXPORT int leveldb_major_version(void);
 ;; TODO LEVELDB_EXPORT int leveldb_minor_version(void)
                                         ;
-
-;; TODO:
-;; leveldb_delete(leveldb_t* db,
-;;                           const leveldb_writeoptions_t* options,
-;;                           const char* key, size_t keylen,
-;;                           char** errptr) ;
-
 ;; ==================== writebatch ====================
 
 (define (leveldb-writebatch-destroy writebatch)
@@ -282,6 +327,11 @@ return(it);
    writebatch
    key   (number-of-bytes key)
    value (number-of-bytes value)))
+
+(define (leveldb-writebatch-delete writebatch key)
+  ((foreign-lambda void "leveldb_writebatch_delete"
+                   leveldb-writebatch scheme-pointer size_t)
+   writebatch key (number-of-bytes key)))
 
 (define (leveldb-write db writebatch #!key
                        (sync #f))

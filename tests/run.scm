@@ -15,9 +15,22 @@
 
  (define db (leveldb-open "test.ldb"))
 
- (leveldb-put db "a" "1")
- (leveldb-put db "b" "2")
- (leveldb-put db "c" "3")
+ (test-group
+  "leveldb-put / get"
+
+  (leveldb-put db "a" "1")
+  (leveldb-put db "b" "2")
+  (leveldb-put db "c" "3")
+  (leveldb-put db "d" "4")
+  (test "1" (leveldb-get db "a"))
+  (test "2" (leveldb-get db "b"))
+  (test "3" (leveldb-get db "c"))
+  (test "4" (leveldb-get db "d"))
+  (test #f  (leveldb-get db "< missing key >"))
+
+  (leveldb-delete db "d")
+  (leveldb-delete db "< missing key >")
+  (test "d gone after delete" #f (leveldb-get db "d")))
 
  (test-group
   "leveldb-iterator"
@@ -44,22 +57,23 @@
    "leveldb-iterator args"
    (define it (leveldb-iterator db seek: "b"))
    (test "b" (leveldb-iter-key it))
-   (test "explicitly destroyable" (begin) (leveldb-iter-destroy it)))
+   (test "explicitly destroyable" (begin) (leveldb-iter-destroy it))))
 
-  (test-group
-   "leveldb writebatch"
+ (test-group
+  "leveldb writebatch"
 
-   (define put leveldb-writebatch-put)
-   (define wb (leveldb-writebatch))
-   (test #t (leveldb-writebatch-t? wb))
+  (define wb (leveldb-writebatch))
+  (define (put k v) (leveldb-writebatch-put wb k v))
+  (test #t (leveldb-writebatch-t? wb))
 
-   (put wb "a" "A wb")
-   (put wb "b" "B wb")
-   (put wb "c" "C wb")
-   (leveldb-write db wb)
+  (put "a" "A wb")
+  (put "b" "B wb")
+  (leveldb-writebatch-delete wb "c")
+  (leveldb-write db wb)
 
-   (test "wb write" "A wb" (leveldb-iter-value (leveldb-iterator db seek: 'first)))
-   (test "explicit call to leveldb-writebatch-destroy" (begin) (leveldb-writebatch-destroy wb))))
+  (test "wb put" "A wb" (leveldb-get db "a"))
+  (test "wb deleted" #f (leveldb-get db "c"))
+  (test "explicit call to leveldb-writebatch-destroy" (begin) (leveldb-writebatch-destroy wb)))
 
  (test-group
   "compaction range"
