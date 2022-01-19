@@ -46,7 +46,10 @@
     (display ">" port)))
 
 (define (call-with-errptr proc)
-  (let-location ((err* (c-pointer c-string) #f))
+  (let-location ((err* (c-pointer c-string)))
+    ;; workaround for type check warning
+    ((foreign-lambda* void (((c-pointer (c-pointer c-string)) err))
+                      "*err = 0;") (location err*))
     (let ((result (proc (location err*))))
       (if err*
           ;;                               ,-- copy error message & free
