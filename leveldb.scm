@@ -215,12 +215,7 @@ leveldb_writeoptions_destroy(o);
                           (verify-checksums #t)
                           (fill-cache #t)
                           ;; snapshot
-                          ;; key, size_t keylen iterate-upper-bound
-                          (read-tier 0)
-                          (tailing #f)
-                          (readahead-size 0) ;; <-- defaults to 8k, I think
-                          pin-data
-                          total-order-seek)
+                          )
   (let* ((iterator*
           (foreign-lambda* leveldb-iterator ((leveldb db)
                                              (bool verify_checksums)
