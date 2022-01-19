@@ -1,21 +1,22 @@
 
-  [Leveldb]: http://leveldb.org "Leveldb"
+  [LevelDB]: https://github.com/google/leveldb "BLABLALevelDB"
   [CHICKEN Scheme]: http://call-cc.org "CHICKEN Scheme"
+  [Keyword arguments]:#keyword-arguments
 
-# [Leveldb] bindings for [CHICKEN Scheme] 5
+# [LevelDB] bindings for [CHICKEN Scheme] 5
 
-Only a portion of the comprehensive Leveldb API is currently
-exposed. However, the API covered by this egg should hopefully get
-most projects started.
+This egg has been tested on [LevelDB] 1.23, but should probably work
+on older versions too.
 
-This egg has been tested on [Leveldb] 6.15 and 5.8.
+An aim of this project is to expose the [LevelDB] C API directly with
+no dependencies except the native LevelDB library. Errors are raised
+where the (hidden) `errptr` argument set to a string pointer on
+return.
 
-An aim of this project is to expose the [Leveldb] API directly as much
-as possible. Some exceptions include `leveldb_open_for_read_only`
-being embedded in `leveldb-open`, `leveldb_iter_seek_to_first`/`last`
-are available through `leveldb-iter-seek` with symbol arguments, and
-naming conventions turning `leveldb_writebatch_create` into
-`leveldb-writebatch`.
+## Dependencies
+
+No eggs, but the LevelDB shared library must be installed before
+installing this egg.
 
 ## Source Code
 
@@ -23,24 +24,11 @@ Hosted [here](https://github.com/kristianlm/chicken-leveldb).
 
 ## API
 
-    [procedure] (leveldb-open name #!key read-only (compression 'lz4) (create-if-missing #t) paranoid-checks (finalizer leveldb-close)) => leveldb-t
+    [procedure] (leveldb-open name #!key (create-if-missing #t) (error-if-exists #f) (paranoid-checks #f) (write-buffer-size (* 4 1024 1024)) (max-open-files 1000) (block-size (* 4 1024)) (restart-interval 16) (max-file-size (* 2 1024 1024)) (compression 'snappy) finalizer)
 
-Opens database at path `name`, returning a `leveldb-t` object. Setting
-`read-only` to a non-false value, will call
-`leveldb_open_for_read_only` instead of `leveldb_open`. This is useful
-as multiple OS processes may open a database in read-only mode, but
-only one may open for read-write.
-
-`finalizer` can be specified here and in some other procedures
-below. It can be set to `#f` to allow for manual memory management,
-which can be faster in cases where there many objects are created. If
-`finalizer` is `#f`, you must remember to call the associated
-`close`/`destroy` procedure explicitly.
-
-`compression` must be one of `(#f snappy zlib bz2 lz4 lz4hc xpress
-zstd)`. Please see the [C
-API](https://github.com/facebook/leveldb/blob/v6.15.5/include/leveldb/options.h#L354)
-for the remaining arguments.
+Opens database at path `name`, returning a `leveldb-t` object. Use
+this object as the `db` argument in procedures below. See [Keyword
+arguments] for options.
 
     [procedure] (leveldb-close db)
 
@@ -48,39 +36,53 @@ Closes `db`. Calling this on a `db` which is already closed has no
 effect. This does not normally need to be called explicitly as it is
 the default finalizer specified in `leveldb-open`.
 
-    [procedure] (leveldb-put db key value #!key (sync #f) (wal #t))
+    [procedure] (leveldb-get db key #!key (verify-checksums #f) (fill-cache #t))
+
+Lookup database entry `key` in `db`. `key` must be a string or a
+chicken.blob. Returns a string. See [keyword arguments] page for
+options.
+
+Note that if you want to scan for a large number of entries, you
+should probably use an `leveldb-iterator`.
+
+    [procedure] (leveldb-put db key value #!key (sync #f))
 
 Inserts an entry into `db`. `key` and `value` must both be strings or
-chicken.blobs.
-
-For the remainding keyword arguments, please see the original [C
-documentation](https://github.com/facebook/leveldb/blob/v6.15.5/include/leveldb/options.h#L1434).
+chicken.blobs. See [Keyword arguments] for the `sync` option.
 
 Note that if you want to insert a large number of entries, using a
 `leveldb-writebatch` may be faster.
 
-    [procedure] (leveldb-iterator db #!key seek verify-checksums fill-cache read-tier tailing readahead-size pin-data total-order-seek (finalizer leveldb-iter-destroy)) => leveldb-iterator-t
+    [procedure] (leveldb-delete db key #!key (sync #f))
+
+Deletes a single entry in `db` on `key`. If the `key` entry does not
+exist, this is a no-op. `key` must be a string or chicken.blob. See
+[Keyword arguments] for usage of `sync`.
+
+Note that if you want to delete a larger number of entries, it is
+probably better to use a `leveldb-writebatch`.
+
+### Iterators
+
+    [procedure] (leveldb-iterator db #!key (finalizer ...) (seek #f) (verify-checksums #t) (fill-cache #t))
 
 Create a `leveldb-iterator-t` instance which you can use to seek, and
-read keys and values from `db`.
+read keys and values from `db`. It is very efficient at moving through
+keys sequentially using `leveldb-iter-next`.
 
 `seek`, if present and not `#f`, will be passed to a call to
-`leveldb-iter-seek`. You can specify `'first` to initialize the
-iterator to the first entry, for example.
+`leveldb-iter-seek`. As with `leveldb-iter-seek`, you can specify
+`'first` to initialize the iterator to the first entry, for example.
 
-The `finalizer` argument works as in `leveldb-open`, where you must
-call `leveldb-iter-destroy` appropriately.
-
-Plase see the `ReadOptions` in the [C API
-documentation](https://github.com/facebook/leveldb/blob/v6.15.5/include/leveldb/options.h#L1253)
-for the remaining arguments.
+See [Keyword arguments] for the other options.
 
     [procedure] (leveldb-iter-valid? it)
 
 Returns `#t` if `it` is in a valid position (where you can read keys
 and move it back or forwards) and `#f` otherwise. A newly created
 iterator starts before the first entry in the database where
-`leveldb-iter-valid?` will return `#f`.
+`leveldb-iter-valid?`, `leveldb-iter-key` and `leveldb-iter-value`
+will return `#f`.
 
     [procedure] (leveldb-iter-seek it key)
 
@@ -112,16 +114,27 @@ iterator that is already closed has no effect. It does normally not
 need to be called as it's the default finalizer specified in
 `leveldb-iterator`.
 
-    [procedure] (leveldb-writebatch #!key (finalizer leveldb-writebatch-destroy)) => leveldb-writebatch-t
+### Writebatch
+
+A `leveldb-writebatch-t` can be used to apply changes atomically. See
+[write_batch.h](https://github.com/google/leveldb/blob/main/include/leveldb/write_batch.h)
+for details.
+
+    [procedure] (leveldb-writebatch #!key (finalizer leveldb-writebatch-destroy))
 
 Create a new `leveldb-writebatch` object. A writebatch can hold
-key-value pairs temporarily, for later to be written to a database
-with `leveldb-write`.
+key-value pairs temporarily, for later to be atomically applied to a
+database with `leveldb-write`.
 
     [procedure] (leveldb-writebatch-put wb key value)
 
 Inserts an entry into `wb`. `key` and `value` must be strings or
 chicken.blobs.
+
+    [procedure] (leveldb-writebatch-delete writebatch key)
+
+Mark `key` as deleted. This works like `leveldb-delete`. Note that if
+you call `put` and `delete` for the same `key`, order is significant.
 
     [procedure] (leveldb-writebatch-clear wb)
 
@@ -135,23 +148,133 @@ already destroy has no effect. This does not normally need to be
 called explicitly as it's the default finalizer specified in
 `leveldb-writebatch`.
 
-    [procedure] (leveldb-write db wb #!key (sync #f) (wal #t))
+    [procedure] (leveldb-write db wb #!key (sync #f))
 
-Write all the entries of `wb` into `db`, persisting them on disk. 
+Write all the entries of `wb` into `db`, persisting them on disk. This
+is an atomic operation. See [Keyword arguments] for the `sync` option.
 
-For the keyword arguments, please see the [C API
-documentation](https://github.com/facebook/leveldb/blob/v6.15.5/include/leveldb/options.h#L1434).
+### Compactions
 
-    [procedure] (leveldb-compact-range db start limit #!key exclusive change-level (target-level 0))
+    [procedure] (leveldb-compact-range db start limit)
 
 Run a database compaction, hopefully reducing the consumed disk
 space. `start` and `limit` are keys that specify the range of keys to
 run the compaction for. Both may be `#f` to specify all keys in the
 database.
 
-Please see the original [C API
-documentation](https://github.com/facebook/leveldb/blob/v6.15.5/include/leveldb/options.h#L1566)
-for usages of the remainding keyword arguments.
+### Keyword arguments
+
+With the exception of the `finalizer` options, these options are
+mostly a copy-paste from the [C
+API](https://github.com/google/leveldb/blob/master/include/leveldb/options.h). They
+apply to all procedures accepting them.
+
+#### `(finalizer (lambda (x) (set-finalizer! x (some-destroy-proc x))))`
+
+Procedures accepting a `finalizer` keyword argument allow manual
+memory control. It is a procedure of 1 argument, the object
+potentially needing a finalizer. The defaults call `set-finalizer!`
+with the corresponding `leveldb-*-destroy` or `leveldb-*-close`
+procedure. This does not normally need to be specified, but can
+sometimes be used to tweak performance.
+
+#### `(sync #f)`
+
+If true, the write will be flushed from the operating system buffer
+cache (by calling WritableFile::Sync()) before the write is considered
+complete.  If this flag is true, writes will be slower.
+
+If this flag is false, and the machine crashes, some recent writes may
+be lost.  Note that if it is just the process that crashes (i.e., the
+machine does not reboot), no writes will be lost even if sync==false.
+
+In other words, a DB write with sync==false has similar crash
+semantics as the "write()" system call.  A DB write with sync==true
+has similar crash semantics to a "write()" system call followed by
+"fsync()".
+
+#### `(verify-checksums #f)`
+
+If true, all data read from underlying storage will be verified
+against corresponding checksums.
+
+#### `(fill-cache #t)`
+
+Should the data read for this iteration be cached in memory? Callers
+may wish to set this field to false for bulk scans.
+
+#### `(create-if-missing #t)`
+
+If true, the database will be created if it is missing.
+
+#### `(error-if-exists #f)`
+
+If true, an error is raised if the database already exists.
+
+#### `(paranoid-checks #f)`
+
+If true, the implementation will do aggressive checking of the data it
+is processing and will stop early if it detects any errors.  This may
+have unforeseen ramifications: for example, a corruption of one DB
+entry may cause a large number of entries to become unreadable or for
+the entire DB to become unopenable.
+
+#### `(write-buffer-size (* 4 1024 1024))`
+
+Amount of data to build up in memory (backed by an unsorted log on
+disk) before converting to a sorted on-disk file.
+
+Larger values increase performance, especially during bulk loads.  Up
+to two write buffers may be held in memory at the same time, so you
+may wish to adjust this parameter to control memory usage.  Also, a
+larger write buffer will result in a longer recovery time the next
+time the database is opened.
+
+#### `(max-open-files 1000)`
+
+Number of open files that can be used by the DB.  You may need to
+increase this if your database has a large working set (budget one
+open file per 2MB of working set).
+
+#### `(block-size (* 4 1024))`
+
+Approximate size of user data packed per block.  Note that the block
+size specified here corresponds to uncompressed data.  The actual size
+of the unit read from disk may be smaller if compression is enabled.
+This parameter can be changed dynamically.
+
+#### `(restart-interval 16)`
+
+Number of keys between restart points for delta encoding of keys.
+This parameter can be changed dynamically.  Most clients should leave
+this parameter alone.
+
+#### `(max-file-size (* 2 1024 1024))`
+
+Leveldb will write up to this amount of bytes to a file before
+switching to a new one.
+
+Most clients should leave this parameter alone.  However if your
+filesystem is more efficient with larger files, you could consider
+increasing the value.  The downside will be longer compactions and
+hence longer latency/performance hiccups.  Another reason to increase
+this parameter might be when you are initially populating a large
+database.
+
+#### `(compression 'snappy)`
+
+Compression must be either `'snappy` (the default), or `#f`. `'snappy`
+gives lightweight but fast compression. Typical speeds on an Intel(R)
+Core(TM)2 2.4GHz:
+
+- ~200-500MB/s compression
+- ~400-800MB/s decompression
+
+Note that these speeds are significantly faster than most persistent
+storage speeds, and therefore it is typically never worth switching it
+off. Even if the input data is incompressible, the `'snappy`
+compression implementation will efficiently detect that and will
+switch to uncompressed mode.
 
 ## Example
 
@@ -172,12 +295,25 @@ for usages of the remainding keyword arguments.
 
 Please see the [`tests`](./tests/) folder for more usage.
 
+## Background
+
+There is a [leveldb egg for CHICKEN
+4](https://wiki.call-cc.org/eggref/4/leveldb). This egg, however, is a
+port of the CHICKEN 5 [rocksdb
+egg](https://wiki.call-cc.org/eggref/5/rocksdb), replacing the CHICKEN
+4 egg with the permission of the author. This egg remains closer to
+the C API than the CHICKEN 4 egg.
+
+Rocksdb is a fork of LevelDB by Facebook, which with almost identical
+C APIs.
+
+For CHICKEN 5, there is also the [lmdb
+egg](https://wiki.call-cc.org/eggref/5/lmdb). My informal tests
+indicate that lmdb is faster for smaller databases (< 100k entries),
+whereas leveldb's performance is relatively stable across all database
+sizes.
+
 ## TODO
 
-- support snapshot in `leveldb-iterator`
-- add the column family API
-- add the backup API
-- add the transaction API
-- add the merge API (hard, probably needs callbacks)
+- support snapshots
 - add support for custom comparators (hard, probably needs callbacks)
-- add the sstfilewriter API
