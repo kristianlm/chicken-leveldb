@@ -1,5 +1,5 @@
 (module leveldb (leveldb-open leveldb-close
-
+                              leveldb-version
                               leveldb-t           leveldb-t?
 
                               leveldb-get leveldb-put leveldb-delete

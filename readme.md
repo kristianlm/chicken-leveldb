@@ -24,6 +24,11 @@ Hosted [here](https://github.com/kristianlm/chicken-leveldb).
 
 ## API
 
+    [procedure] (leveldb-version)
+
+ Returns the native LevelDB library version as a list with two
+ elements: `(major minor)`.
+
     [procedure] (leveldb-open name #!key (create-if-missing #t) (error-if-exists #f) (paranoid-checks #f) (write-buffer-size (* 4 1024 1024)) (max-open-files 1000) (block-size (* 4 1024)) (restart-interval 16) (max-file-size (* 2 1024 1024)) (compression 'snappy) finalizer)
 
 Opens database at path `name`, returning a `leveldb-t` object. Use

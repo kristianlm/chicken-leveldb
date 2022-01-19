@@ -8,6 +8,11 @@
 
 (foreign-declare "#include <leveldb/c.h>")
 
+(define (leveldb-version)
+  (list
+   ((foreign-lambda int "leveldb_major_version"))
+   ((foreign-lambda int "leveldb_minor_version"))))
+
 (define-record leveldb-t pointer)
 (define-foreign-type leveldb (c-pointer "leveldb_t")
   (lambda (leveldb) (leveldb-t-pointer leveldb))
@@ -301,9 +306,6 @@ return(it);
 
 ;; TODO  leveldb_iter_get_error (const leveldb_iterator_t*,char** errptr)                   ;
 
-;; TODO LEVELDB_EXPORT int leveldb_major_version(void);
-;; TODO LEVELDB_EXPORT int leveldb_minor_version(void)
-                                        ;
 ;; ==================== writebatch ====================
 
 (define (leveldb-writebatch-destroy writebatch)
