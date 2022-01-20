@@ -44,7 +44,7 @@ the default finalizer specified in `leveldb-open`.
     [procedure] (leveldb-get db key #!key (verify-checksums #f) (fill-cache #t))
 
 Lookup database entry `key` in `db`. `key` must be a string or a
-chicken.blob. Returns a string. See [keyword arguments] page for
+chicken.blob. Returns a string. See [Keyword arguments] page for
 options.
 
 Note that if you want to scan for a large number of entries, you
@@ -285,7 +285,7 @@ switch to uncompressed mode.
 
 ```scheme
 (import leveldb)
-(define db (leveldb-open "testing.rocks"))
+(define db (leveldb-open "testing.ldb"))
 
 (leveldb-put db "key1" "value1")
 (leveldb-put db "key2" "value2")
