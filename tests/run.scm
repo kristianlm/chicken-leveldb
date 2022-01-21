@@ -1,4 +1,5 @@
-(import test leveldb chicken.file chicken.port)
+(import test leveldb chicken.file chicken.port
+        (only chicken.gc gc))
 
 (if (directory-exists? "test.ldb")
     (delete-directory "test.ldb" #t))
@@ -78,7 +79,11 @@
  (test-group
   "compaction range"
   (leveldb-compact-range db "a" "b")
-  (leveldb-compact-range db #f #f)))
+  (leveldb-compact-range db #f #f))
 
+ (let ((it (leveldb-iterator db seek: 'first)))
+   (set! db #f)
+   (gc #t) ;; db should not be finalized here
+   (test "a"(leveldb-iter-key it))))
 
 (test-exit)

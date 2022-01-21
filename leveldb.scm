@@ -23,10 +23,10 @@
     (display (leveldb-t-pointer db) port)
     (display ">" port)))
 
-(define-record leveldb-iterator-t pointer)
+(define-record leveldb-iterator-t pointer db)
 (define-foreign-type leveldb-iterator (c-pointer "leveldb_iterator_t")
   (lambda (it) (leveldb-iterator-t-pointer it))
-  (lambda (pointer) (make-leveldb-iterator-t pointer)))
+  (lambda (pointer) (make-leveldb-iterator-t pointer #f)))
 (define-record-printer leveldb-iterator-t
   (lambda (it port)
     (display "#<leveldb-iterator-t" port)
@@ -214,16 +214,19 @@ leveldb_writeoptions_destroy(o);
 (define (leveldb-iter-destroy it)
   (when (leveldb-iterator-t-pointer it)
     ((foreign-lambda void "leveldb_iter_destroy" leveldb-iterator) it)
-    (leveldb-iterator-t-pointer-set! it #f)))
+    (leveldb-iterator-t-pointer-set! it #f)
+    (leveldb-iterator-t-db-set!      it #f)))
 
 (define (leveldb-iterator db #!key
-                          (finalizer (lambda (iter) (set-finalizer! iter leveldb-iter-destroy)))
                           (seek #f)
                           ;; ==================== options ====================
                           (verify-checksums #t)
                           (fill-cache #t)
                           ;; snapshot
-                          )
+                          (finalizer (lambda (iter)
+                                       ;; make sure db isn't finalized while still in use
+                                       (leveldb-iterator-t-db-set! iter db)
+                                       (set-finalizer! iter leveldb-iter-destroy))))
   (let* ((iterator*
           (foreign-lambda* leveldb-iterator ((leveldb db)
                                              (bool verify_checksums)
